@@ -26,6 +26,8 @@ locals {
 ################################################################################
 
 resource "aws_ec2_transit_gateway" "this" {
+  count = var.create_tgw ? 1 : 0
+
   description = var.description
   amazon_side_asn                    = var.amazon_side_asn
   default_route_table_association    = var.enable_default_route_table_association ? "enable" : "disable"
@@ -82,8 +84,7 @@ resource "aws_ec2_transit_gateway_route_table" "this" {
   tags = merge(
     var.tags,
     { Name = var.name },
-    var.tgw_vpc_attachment_tags,
-    try(each.value.tags, {}),
+    var.tgw_vpc_attachment_tags
   )
 }
 
@@ -93,7 +94,7 @@ resource "aws_ec2_transit_gateway_route" "this" {
   destination_cidr_block = local.vpc_attachments_with_routes[count.index][1].destination_cidr_block
   blackhole              = try(local.vpc_attachments_with_routes[count.index][1].blackhole, null)
 
-  transit_gateway_route_table_id = var.create_tgw ? aws_ec2_transit_gateway_route_table.this.id : var.transit_gateway_route_table_id
+  transit_gateway_route_table_id = var.create_tgw ? aws_ec2_transit_gateway_route_table.this[0].id : var.transit_gateway_route_table_id
   transit_gateway_attachment_id  = tobool(try(local.vpc_attachments_with_routes[count.index][1].blackhole, false)) == false ? aws_ec2_transit_gateway_vpc_attachment.this[local.vpc_attachments_with_routes[count.index][0].key].id : null
 }
 
