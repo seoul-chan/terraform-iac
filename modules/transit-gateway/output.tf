@@ -62,7 +62,7 @@ output "ec2_transit_gateway_route_table_default_propagation_route_table" {
 
 output "ec2_transit_gateway_route_ids" {
   description = "List of EC2 Transit Gateway Route Table identifier combined with destination"
-  value       = aws_ec2_transit_gateway_route.this[*].id
+  value       = [for k, v in aws_ec2_transit_gateway_route.this : v.id]
 }
 
 output "ec2_transit_gateway_route_table_association_ids" {
