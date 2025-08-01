@@ -118,6 +118,11 @@ variable "tgw_vpc_attachment_tags" {
 # Route Table / Routes
 ################################################################################
 
+variable "tgw_route_tables" {
+  type        = any
+  default     = {}
+}
+
 variable "create_tgw_routes" {
   description = "Controls if TGW Route Table / Routes should be created"
   type        = bool

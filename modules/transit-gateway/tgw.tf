@@ -1,15 +1,16 @@
 locals {
   # 1. VPC Attachment별 Route 목록 생성
-  vpc_attachments_with_routes = chunklist(flatten([
-    for k, v in var.vpc_attachments : setproduct([{ key = k }], v.tgw_routes) if var.create_tgw && can(v.tgw_routes)
-  ]), 2)
-
-  # TGW Routing Table id 선별
-  tgw_route_table_ids = {
-    for k, v in var.vpc_attachments :
-    k => v.create_route_table ?
-      aws_ec2_transit_gateway_route_table.this[k].id : v.transit_gateway_route_table_id
-  }
+  tgw_route_tables_routes = flatten([
+    for table_key, table_value in var.tgw_route_tables : [
+      for route in table_value.tgw_routes : {
+        route_table_key        = table_key
+        destination_cidr_block = route.destination_cidr_block
+        blackhole              = try(route.blackhole, false)
+        attachment_key         = try(route.attachment, null)
+        attachment_id          = try(table_value.attachments[route.attachment], null)
+      }
+    ]
+  ])
 
   # 2. TGW Default Route Table 태그 병합
   tgw_default_route_table_tags_merged = merge(
@@ -19,15 +20,21 @@ locals {
   )
 
   # 3. VPC Route Table 별 CIDR 라우팅 정보 구성
-  vpc_route_table_destination_cidr = flatten([
-    for k, v in var.vpc_attachments : [
-      for rtb_id in try(v.vpc_route_table_ids, []) : {
-        rtb_id = rtb_id
-        cidr   = v.tgw_destination_cidr
-        tgw_id = var.create_tgw ? aws_ec2_transit_gateway.this[0].id : v.tgw_id
-      }
-    ]
-  ])
+  # vpc_route_table_destination_cidr = flatten([
+  #   for k, v in var.vpc_attachments : [
+  #     for rtb_id in try(v.vpc_route_table_ids, []) : {
+  #       rtb_id = rtb_id
+  #       cidr   = v.tgw_destination_cidr
+  #       tgw_id = var.create_tgw ? aws_ec2_transit_gateway.this[0].id : v.tgw_id
+  #     }
+  #   ]
+  # ])
+
+  # tgw_route_tables의 attachment 분류
+  tgw_route_tables_attachments_map = {
+    for table_key, table_value in var.tgw_route_tables :
+    table_key => table_value.attachments
+  }
 }
 
 ################################################################################
@@ -86,11 +93,9 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
 ################################################################################
 
 resource "aws_ec2_transit_gateway_route_table" "this" {
-  for_each = {
-    for k, v in var.vpc_attachments : k => v if try(v.create_route_table, false)
-  }
+  for_each = var.tgw_route_tables
 
-  transit_gateway_id = var.create_tgw ? aws_ec2_transit_gateway.this[0].id : each.value.tgw_id
+  transit_gateway_id = aws_ec2_transit_gateway.this[0].id
 
   tags = merge(
     var.tags,
@@ -100,33 +105,49 @@ resource "aws_ec2_transit_gateway_route_table" "this" {
 }
 
 resource "aws_ec2_transit_gateway_route" "this" {
-  count = var.create_tgw_routes ? length(local.vpc_attachments_with_routes) : 0
+  count = var.create_tgw_routes ? length(local.tgw_route_tables_routes) : 0
 
-  destination_cidr_block = local.vpc_attachments_with_routes[count.index][1].destination_cidr_block
-  blackhole              = try(local.vpc_attachments_with_routes[count.index][1].blackhole, null)
+  destination_cidr_block = local.tgw_route_tables_routes[count.index].destination_cidr_block
+  blackhole              = local.tgw_route_tables_routes[count.index].blackhole
 
-  transit_gateway_route_table_id = local.tgw_route_table_ids[local.vpc_attachments_with_routes[count.index][0].key]
-  transit_gateway_attachment_id  = tobool(try(local.vpc_attachments_with_routes[count.index][1].blackhole, false)) == false ? aws_ec2_transit_gateway_vpc_attachment.this[local.vpc_attachments_with_routes[count.index][0].key].id : null
+  transit_gateway_route_table_id = aws_ec2_transit_gateway_route_table.this[local.tgw_route_tables_routes[count.index].route_table_key].id
+
+  transit_gateway_attachment_id = (
+    local.tgw_route_tables_routes[count.index].blackhole == false &&
+    local.tgw_route_tables_routes[count.index].attachment_id != null
+  ) ? local.tgw_route_tables_routes[count.index].attachment_id : null
 }
 
 resource "aws_ec2_transit_gateway_route_table_association" "this" {
-  for_each = {
-    for k, v in var.vpc_attachments : k => v 
-      if try(v.transit_gateway_default_route_table_association, true) != true
-  }
+  for_each = merge([
+    for table_key, attachments in local.tgw_route_tables_attachments_map :
+    {
+      for attach_key, attach_id in attachments :
+      "${table_key}_${attach_key}" => {
+        route_table_key = table_key
+        attach_id       = attach_id
+      }
+    }
+  ]...)
 
   # Create association if it was not set already by aws_ec2_transit_gateway_vpc_attachment resource
-  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.this[each.key].id
-  transit_gateway_route_table_id = local.tgw_route_table_ids[each.key]
+  transit_gateway_attachment_id  = each.value.attach_id
+  transit_gateway_route_table_id = var.create_tgw ? aws_ec2_transit_gateway_route_table.this[each.value.route_table_key].id : try(each.value.transit_gateway_route_table_id, var.transit_gateway_route_table_id)
 }
 
 resource "aws_ec2_transit_gateway_route_table_propagation" "this" {
-  for_each = {
-    for k, v in var.vpc_attachments : k => v
-      if try(v.transit_gateway_default_route_table_propagation, true) != true
-  }
+  for_each = merge([
+    for table_key, attachments in local.tgw_route_tables_attachments_map :
+    {
+      for attach_key, attach_id in attachments :
+      "${table_key}_${attach_key}" => {
+        route_table_key = table_key
+        attach_id       = attach_id
+      }
+    }
+  ]...)
 
   # Create association if it was not set already by aws_ec2_transit_gateway_vpc_attachment resource
-  transit_gateway_attachment_id  = aws_ec2_transit_gateway_vpc_attachment.this[each.key].id
-  transit_gateway_route_table_id = local.tgw_route_table_ids[each.key]
+  transit_gateway_attachment_id  = each.value.attach_id
+  transit_gateway_route_table_id = var.create_tgw ? aws_ec2_transit_gateway_route_table.this[each.value.route_table_key].id : try(each.value.transit_gateway_route_table_id, var.transit_gateway_route_table_id)
 }
