@@ -35,7 +35,7 @@ locals {
   #   ]
   # ])
 
-  # tgw_route_tables의 attachment 분류
+  # var.tgw_route_tables의 연결되는 attachment 추출
   tgw_route_tables_attachments_map = {
     for table_key, table_value in var.tgw_route_tables :
     table_key => table_value.attachments
@@ -47,8 +47,6 @@ locals {
 ################################################################################
 
 resource "aws_ec2_transit_gateway" "this" {
-  count = var.create_tgw ? 1 : 0
-
   description = var.description
   amazon_side_asn                    = var.amazon_side_asn
   default_route_table_association    = var.enable_default_route_table_association ? "enable" : "disable"
@@ -74,7 +72,7 @@ resource "aws_ec2_transit_gateway" "this" {
 resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
   for_each = var.vpc_attachments
 
-  transit_gateway_id = var.create_tgw ? aws_ec2_transit_gateway.this[0].id : each.value.tgw_id        # 붙을 대상이되는 TGW
+  transit_gateway_id = var.create_tgw ? aws_ec2_transit_gateway.this.id : each.value.tgw_id        # 붙을 대상이되는 TGW
   vpc_id             = each.value.vpc_id                                                              # 서브넷이 위치하는 VPC
   subnet_ids         = each.value.subnet_ids                                                          # TGW에 붙을 서브넷
 
@@ -100,7 +98,7 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
 resource "aws_ec2_transit_gateway_route_table" "this" {
   for_each = var.tgw_route_tables
 
-  transit_gateway_id = aws_ec2_transit_gateway.this[0].id
+  transit_gateway_id = aws_ec2_transit_gateway.this.id
 
   tags = merge(
     var.tags,
