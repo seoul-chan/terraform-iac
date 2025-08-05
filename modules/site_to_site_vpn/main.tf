@@ -11,7 +11,7 @@ locals {
   create_tunnel_with_preshared_key_only = local.internal_cidr_not_provided && local.preshared_key_provided
 
   connection_identifier = var.connect_to_transit_gateway ? "TGW ${var.transit_gateway_id}" : "VPC ${var.vpc_id}"
-  name_tag              = "VPN Connection between ${local.connection_identifier} and Customer Gateway ${var.customer_gateway_id}"
+  Description              = "VPN Connection: ${local.connection_identifier} / Customer Gateway ${var.customer_gateway_id}"
 }
 
 ### Fully AWS managed
@@ -116,10 +116,10 @@ resource "aws_vpn_connection" "default" {
   remote_ipv6_network_cidr = var.remote_ipv6_network_cidr
 
   tags = merge(
-    {
-      "Name" = local.name_tag
-    },
     var.tags,
+    {
+      "Description" = local.Description
+    },
   )
 }
 
@@ -228,10 +228,10 @@ resource "aws_vpn_connection" "tunnel" {
   remote_ipv6_network_cidr = var.remote_ipv6_network_cidr
 
   tags = merge(
-    {
-      "Name" = local.name_tag
-    },
     var.tags,
+    {
+      "Description" = local.Description
+    },
   )
 }
 
@@ -262,6 +262,9 @@ resource "aws_vpn_connection" "preshared" {
 
   tunnel1_phase1_lifetime_seconds = var.tunnel1_phase1_lifetime_seconds
   tunnel2_phase1_lifetime_seconds = var.tunnel2_phase1_lifetime_seconds
+
+  tunnel1_dpd_timeout_seconds = var.tunnel1_dpd_timeout_seconds
+  tunnel2_dpd_timeout_seconds = var.tunnel2_dpd_timeout_seconds
 
   tunnel1_dpd_timeout_action = var.tunnel1_dpd_timeout_action
   tunnel2_dpd_timeout_action = var.tunnel2_dpd_timeout_action
@@ -337,10 +340,10 @@ resource "aws_vpn_connection" "preshared" {
   remote_ipv6_network_cidr = var.remote_ipv6_network_cidr
 
   tags = merge(
-    {
-      "Name" = local.name_tag
-    },
     var.tags,
+    {
+      "Description" = local.Description
+    },
   )
 }
 
@@ -452,10 +455,10 @@ resource "aws_vpn_connection" "tunnel_preshared" {
   remote_ipv6_network_cidr = var.remote_ipv6_network_cidr
 
   tags = merge(
-    {
-      "Name" = local.name_tag
-    },
     var.tags,
+    {
+      "Description" = local.Description
+    },
   )
 }
 
@@ -483,7 +486,7 @@ resource "aws_vpn_connection_route" "default" {
 
 ### Fix tagging on Transit Gateway Attachment if it exists
 resource "aws_ec2_tag" "tags" {
-  for_each = { for key, value in merge({ "Name" = local.name_tag }, var.tags) : key => value if var.create_vpn_connection && var.connect_to_transit_gateway }
+  for_each = { for key, value in merge({ "Description" = local.Description }, var.tags) : key => value if var.create_vpn_connection && var.connect_to_transit_gateway }
 
   resource_id = try(
     aws_vpn_connection.default[0].transit_gateway_attachment_id,
