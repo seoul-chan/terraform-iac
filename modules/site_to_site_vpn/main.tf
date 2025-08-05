@@ -462,6 +462,7 @@ resource "aws_vpn_connection" "tunnel_preshared" {
   )
 }
 
+# connect attachment VPN_to_VGW
 resource "aws_vpn_gateway_attachment" "default" {
   count = var.create_vpn_connection && var.create_vpn_gateway_attachment && !var.connect_to_transit_gateway ? 1 : 0
 
