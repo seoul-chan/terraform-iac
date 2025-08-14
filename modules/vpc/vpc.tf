@@ -47,30 +47,30 @@ resource "aws_subnet" "private" {
 ### Gateway
 ##################
 
-# Internet Gateway
-resource "aws_internet_gateway" "igw" {
-  vpc_id = aws_vpc.main.id
+# # Internet Gateway
+# resource "aws_internet_gateway" "igw" {
+#   vpc_id = aws_vpc.main.id
 
-  tags = {
-    Name = "${var.vpc_name}_igw"
-  }
-}
+#   tags = {
+#     Name = "${var.vpc_name}_igw"
+#   }
+# }
 
 
-resource "aws_eip" "nat" {
-  tags = {
-    Name = "nat_eip"
-  }
-}
+# resource "aws_eip" "nat" {
+#   tags = {
+#     Name = "nat_eip"
+#   }
+# }
 
-# NAT Gateway
-resource "aws_nat_gateway" "ngw" {
-    allocation_id = aws_eip.nat.id
-    subnet_id     = aws_subnet.public[0].id  # NAT은 퍼블릭 서브넷에 위치해야 함
-    tags = {
-        Name = "${var.vpc_name}_nat-gateway"
-  }
-}
+# # NAT Gateway
+# resource "aws_nat_gateway" "ngw" {
+#     allocation_id = aws_eip.nat.id
+#     subnet_id     = aws_subnet.public[0].id  # NAT은 퍼블릭 서브넷에 위치해야 함
+#     tags = {
+#         Name = "${var.vpc_name}_nat-gateway"
+#   }
+# }
 
 # ##################
 # ### Route Table
