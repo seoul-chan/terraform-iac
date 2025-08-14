@@ -20,7 +20,7 @@ resource "aws_customer_gateway" "hq_cgw2" {
 }
 
 ##############################
-# VPN connections
+# VPN connections - TGW
 ##############################
 module "vpn_gateway_1" {
   source = "../modules/site-to-site-vpn"
@@ -78,3 +78,21 @@ module "vpn_gateway_2" {
     Name = "HQ-2_vpn"
   }
 }
+
+##############################
+# VPN connections - VGW
+##############################
+# module "vpn_gateway_1" {
+#   source = "../modules/site-to-site-vpn"
+
+#   customer_gateway_id = aws_customer_gateway.hq_cgw1.id
+#   vpc_id = local.vpc_01_id
+#   vpn_gateway_id  = "vgw-0ede7005f72a43e5e"
+#   vpn_connection_static_routes_destinations = ["1.1.1.1/32","1.1.1.2/32"]
+
+#   vpn_connection_static_routes_only = true
+
+#   tags = {
+#     Name = "HQ-1-vgw"
+#   }
+# }
