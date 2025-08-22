@@ -9,12 +9,24 @@ locals {
             route_table_key        = table_key
             destination_cidr_block = route.destination_cidr_block
             blackhole              = try(route.blackhole, false)
-            attachment_key         = try(route.attachment, null)
-            attachment_id          = try(table_value.attachments[route.attachment], null)
+            # attachment_key         = try(route.attachment, null)
+            attachment_id          = try(route.attachment, null)
           }
         }
       ]
     ]) : route.key => route.value
+  }
+
+  # 2. var.tgw_route_tables의 연결되는 attachment 추출
+  tgw_route_tables_attachments_map = {
+    for table_key, table_value in var.tgw_route_tables :
+    table_key => table_value.attachments
+  }
+
+  # 3. Propagation 맵 attachment 추출
+  tgw_route_tables_propagations_map = {
+    for table_key, table_value in var.tgw_route_tables : 
+    table_key => table_value.propagations
   }
 
   # 2. TGW Default Route Table 태그 병합
@@ -34,12 +46,6 @@ locals {
   #     }
   #   ]
   # ])
-
-  # var.tgw_route_tables의 연결되는 attachment 추출
-  tgw_route_tables_attachments_map = {
-    for table_key, table_value in var.tgw_route_tables :
-    table_key => table_value.attachments
-  }
 }
 
 ################################################################################
@@ -85,9 +91,8 @@ resource "aws_ec2_transit_gateway_vpc_attachment" "this" {
 
   tags = merge(
     var.tags,
-    { Name = each.value.name },
-    var.tgw_vpc_attachment_tags,
-    try(each.value.tags, {}),
+    each.value.tgw_vpc_attachment_tags,
+    try(each.value.tgw_vpc_attachment_tags, {}),
   )
 }
 
@@ -102,7 +107,7 @@ resource "aws_ec2_transit_gateway_route_table" "this" {
 
   tags = merge(
     var.tags,
-    { Name = each.value.name },
+    each.value.tgw_route_table_tags,
     var.tgw_vpc_attachment_tags
   )
 }
@@ -140,9 +145,9 @@ resource "aws_ec2_transit_gateway_route_table_association" "this" {
 
 resource "aws_ec2_transit_gateway_route_table_propagation" "this" {
   for_each = merge([
-    for table_key, attachments in local.tgw_route_tables_attachments_map :
+    for table_key, propagations in local.tgw_route_tables_propagations_map :
     {
-      for attach_key, attach_id in attachments :
+      for attach_key, attach_id in propagations :
       "${table_key}_${attach_key}" => {
         route_table_key = table_key
         attach_id       = attach_id
