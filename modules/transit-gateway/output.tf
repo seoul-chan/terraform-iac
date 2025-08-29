@@ -4,27 +4,27 @@
 
 output "ec2_transit_gateway_arn" {
   description = "EC2 Transit Gateway Amazon Resource Name (ARN)"
-  value       = try(aws_ec2_transit_gateway.this.arn, "")
+  value       = try(aws_ec2_transit_gateway.this[0].arn, "")
 }
 
 output "ec2_transit_gateway_id" {
   description = "EC2 Transit Gateway identifier"
-  value       = try(aws_ec2_transit_gateway.this.id, "")
+  value       = try(aws_ec2_transit_gateway.this[0].id, "")
 }
 
 output "ec2_transit_gateway_owner_id" {
   description = "Identifier of the AWS account that owns the EC2 Transit Gateway"
-  value       = try(aws_ec2_transit_gateway.this.owner_id, "")
+  value       = try(aws_ec2_transit_gateway.this[0].owner_id, "")
 }
 
 output "ec2_transit_gateway_association_default_route_table_id" {
   description = "Identifier of the default association route table"
-  value       = try(aws_ec2_transit_gateway.this.association_default_route_table_id, "")
+  value       = try(aws_ec2_transit_gateway.this[0].association_default_route_table_id, "")
 }
 
 output "ec2_transit_gateway_propagation_default_route_table_id" {
   description = "Identifier of the default propagation route table"
-  value       = try(aws_ec2_transit_gateway.this.propagation_default_route_table_id, "")
+  value       = try(aws_ec2_transit_gateway.this[0].propagation_default_route_table_id, "")
 }
 
 ################################################################################
