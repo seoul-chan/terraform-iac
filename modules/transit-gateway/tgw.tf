@@ -36,16 +36,6 @@ locals {
     var.tgw_default_route_table_tags,
   )
 
-  # 3. VPC Route Table 별 CIDR 라우팅 정보 구성
-  # vpc_route_table_destination_cidr = flatten([
-  #   for k, v in var.vpc_attachments : [
-  #     for rtb_id in try(v.vpc_route_table_ids, []) : {
-  #       rtb_id = rtb_id
-  #       cidr   = v.tgw_destination_cidr
-  #       tgw_id = var.create_tgw ? aws_ec2_transit_gateway.this[0].id : v.tgw_id
-  #     }
-  #   ]
-  # ])
 }
 
 ################################################################################
