@@ -1,8 +1,8 @@
 locals {
   # 1. VPC Attachment별 Route 목록 생성
   tgw_route_tables_route_map = {
-    for route in flatten([
-      for table_key, table_value in var.tgw_route_tables : [
+    for route in flatten([                                            # flatten() : 목록 평탄화, [[Map1],[Map2]] => [Map1,Map2]
+      for table_key, table_value in var.tgw_route_tables : [          # tgw_route_tables = {vpc-xxx-rt = {tgw_routes = [{ destination_cidr_block = "10.0.0.0/16", attachment = "tgw-attach-xxxxxxxxxxxx" }]}}
         for route in table_value.tgw_routes : {
           key = "${table_key}_${route.destination_cidr_block}"
           value = {
@@ -14,14 +14,14 @@ locals {
           }
         }
       ]
-    ]) : route.key => route.value
+    ]) : route.key => route.value                                     # for 문으로 모든 목록 평탄화, 임시 맵의 key를 최종 맵의 키로, value를 최종 맵의 값으로 사용 / tgw_route_tables_route_map = {"vpc-xxx-rt_10.0.0.0/16" = { ... }, "vpc-xxx-rt_10.20.0.0/16" = { ... }}
   }
 
   # 2. var.tgw_route_tables의 연결되는 attachment 추출
   tgw_route_tables_attachments_map = {
     for table_key, table_value in var.tgw_route_tables :
-    table_key => table_value.attachments
-  }
+    table_key => table_value.attachments                            # "vpc-xxx-rt" = { "xxx-vpc_infra" = "tgw-attach-xxxxxxxxxxxx", "yyy-vpc_infra" = "tgw-attach-xxxxxxxxxxxx" }
+  }                                                                 # tgw_route_tables_attachments_map = {"vpc-xxx-rt"= { "xxx-vpc_infra" = "tgw-attach-xxxxxxxxxxxx", "yyy-vpc_infra" = "tgw-attach-xxxxxxxxxxxx"}}
 
   # 3. Propagation 맵 attachment 추출
   tgw_route_tables_propagations_map = {
@@ -120,10 +120,10 @@ resource "aws_ec2_transit_gateway_route" "this" {
 
 resource "aws_ec2_transit_gateway_route_table_association" "this" {
   for_each = merge([
-    for table_key, attachments in local.tgw_route_tables_attachments_map :
+    for table_key, attachments in local.tgw_route_tables_attachments_map :    # table_key: "vpc-xxx-rt" / attachments: { "xxx-vpc_infra" = "tgw-attach-xxxxxxxxxxxx", "yyy-vpc_infra" = "tgw-attach-xxxxxxxxxxxx"}
     {
-      for attach_key, attach_id in attachments :
-      "${table_key}_${attach_key}" => {
+      for attach_key, attach_id in attachments :          # attach_key: xxx-vpc_infra ,attach_id: tgw-attach-xxxxxxxxxxxx
+      "${table_key}_${attach_key}" => {                   # "vpc-xxx-rt_security-vpc_infra" = {"route_table_key" = "vpc-xxx-rt" "attach_id" = "tgw-attach-xxxxxxxxxxxx"}
         route_table_key = table_key
         attach_id       = attach_id
       }
