@@ -1,5 +1,5 @@
 module "chan-tgw" {
-  source = "../../modules/transit-gateway"
+  source = "../modules/transit-gateway"
 
 ################################################################################
 # Transit Gateway
@@ -113,7 +113,7 @@ module "chan-tgw" {
 }
 
 module "dev-tgw" {
-  source = "../../modules/transit-gateway"
+  source = "../modules/transit-gateway"
   create_tgw = false
 
 ################################################################################
